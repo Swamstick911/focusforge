@@ -2,7 +2,8 @@
 
 **FocusForge** is a visually stunning producutivity timer app built to help you stay focused and motivated during study or work sessions. With Lock-In and Chill Modes (chill mode still in development), ambient fire-glow aesthetics, sound alerts, starry background, and dynamic animations - this is not just another timer, it's a vibe.
 
-![FocusForge Screenshot](./screenshot.png)
+<img width="1904" height="895" alt="image" src="https://github.com/user-attachments/assets/496cfd2a-2f4a-45ac-a48a-943d84ddd317" />
+
 
 ---
 
