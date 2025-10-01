@@ -1,179 +1,165 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import TimerCard from "./components/TimerCard";
+import Buttons from "./components/Buttons";
+import StatusPanel from "./components/StatusPanel";
+import Particles from "./components/Particles";
+import AudioPlayer from "./components/AudioPlayer";
+import PresetSelector from "./components/PresetSelector";
 
 function App() {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  // Default times
+  const [workTime, setWorkTime] = useState(25 * 60);
+  const [breakTime, setBreakTime] = useState(5 * 60);
+
+  const [timeLeft, setTimeLeft] = useState(workTime);
   const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef(null);
   const [isBreak, setIsBreak] = useState(false);
   const [chillMode, setChillMode] = useState(false);
-  const audioRef = useRef(null);
-  const [stars, setStars] = useState([]);
-
-  useEffect(() => {
-    const starArray = Array.from({ length: 100 }).map(() => ({
-      top: `${Math.random() * 100}%`,
-      left: `${Math.random() * 100}%`,
-      animationDelay: `${Math.random() * 3}s`,
-    }));
-    setStars(starArray);
-  }, []);
-
-  const [streak, setStreak] = useState(() => {
-    const saved = localStorage.getItem("focusforge_streak");
-    return saved ? parseInt(saved) : 0;
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("focusforge_dark") === "true";
   });
 
-  const formatTime = (seconds) => {
-    const min = Math.floor(seconds / 60);
-    const sec = seconds % 60;
-    return `${min.toString().padStart(2, "0")}:${sec
-      .toString()
-      .padStart(2, "0")}`;
-  };
+  const [streak, setStreak] = useState(() => parseInt(localStorage.getItem("focusforge_streak")) || 0);
+  const [xp, setXp] = useState(() => parseInt(localStorage.getItem("focusforge_xp")) || 0);
+  const [level, setLevel] = useState(() => parseInt(localStorage.getItem("focusforge_level")) || 1);
 
-  const startTimer = () => {
-    if (isRunning) return;
-    setIsRunning(true);
+  const [playSound, setPlaySound] = useState(false);
+  const [levelUpFlash, setLevelUpFlash] = useState(false);
 
-    intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          audioRef.current?.play();
+  useEffect(() => setTimeLeft(isBreak ? breakTime : workTime), [workTime, breakTime, isBreak]);
 
-          if (!isBreak) {
-            const newStreak = streak + 1;
-            setStreak(newStreak);
-            localStorage.setItem("focusforge_streak", newStreak);
-            setTimeLeft(5 * 60); // break time
-            setIsBreak(true);
-          } else {
-            setTimeLeft(25 * 60); // work time
-            setIsBreak(false);
+  useEffect(() => {
+    let interval = null;
+    if (isRunning) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setPlaySound(true);
+
+            if (!isBreak) {
+              const newStreak = streak + 1;
+              setStreak(newStreak);
+              localStorage.setItem("focusforge_streak", newStreak);
+
+              const newXp = xp + 10;
+              setXp(newXp);
+              localStorage.setItem("focusforge_xp", newXp);
+
+              if (newXp >= level * 50) {
+                setLevel(level + 1);
+                localStorage.setItem("focusforge_level", level + 1);
+
+                // WOW level-up flash
+                setLevelUpFlash(true);
+                setTimeout(() => setLevelUpFlash(false), 3000);
+              }
+
+              setIsBreak(true);
+              return breakTime;
+            } else {
+              setIsBreak(false);
+              return workTime;
+            }
           }
+          return prev - 1;
+        });
+      }, 1000);
+    } else clearInterval(interval);
+    return () => clearInterval(interval);
+  }, [isRunning, isBreak, workTime, breakTime, streak, xp, level]);
 
-          setIsRunning(false);
-          return 0;
-        }
-
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const pauseTimer = () => {
-    setIsRunning(false);
-    clearInterval(intervalRef.current);
-  };
-
+  const startPause = () => setIsRunning(!isRunning);
   const resetTimer = () => {
     setIsRunning(false);
-    clearInterval(intervalRef.current);
-    setTimeLeft(25 * 60);
-    setIsBreak(false);
+    setTimeLeft(isBreak ? breakTime : workTime);
+  };
+  const toggleMode = () => setChillMode(!chillMode);
+
+  // Dark mode toggle
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem("focusforge_dark", newMode);
   };
 
   return (
-    <>
-      <div className="w-screen h-screen bg-gradient-to-br from-zinc-900 via-gray-900 to-black bg-[length:400%_400%] animate-gradient-x text-white flex items-center justify-center px-4">
-        <div className="stars absolute w-full h-full top-0 left-0 pointer-events-none">
-          {stars.map((star, i) => (
-            <div
-            key={i}
-            className="star"
-            style={{
-              top: star.top,
-              left: star.left,
-              animationDelay: star.animationDelay,
-            }}/> 
-          ))}
-        </div>
+    <div
+      className={`w-screen h-screen relative flex items-center justify-center overflow-hidden animate-gradient-x 
+        ${darkMode
+          ? "bg-gradient-to-br from-gray-900 via-zinc-900 to-black text-white"
+          : "bg-gradient-to-br from-gray-100 via-gray-200 to-white text-black"
+        }`}
+    >
+      {/* Background particles */}
+      {darkMode && <Particles mode={chillMode ? "chill" : "lockin"} />}
 
-        <div className="max-w-sm w-full text-center space-y-6">
-          <div className="relative inline-block">
-            <h1 className="text-5xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 animate-fireglow leading-[1.5]">
-              FocusForge
-            </h1>
+      <div className="relative z-10 flex flex-col items-center space-y-6 animate-float">
+        {/* Title */}
+        <h1
+          className={`relative text-6xl font-extrabold tracking-wide bg-clip-text text-transparent drop-shadow-xl 
+            ${darkMode
+              ? chillMode
+                ? "bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 animate-fireglow"
+                : "bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 animate-fireglow"
+              : "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600"
+            }`}
+        >
+          FocusForge
+        </h1>
 
-            <div className="absolute inset-0 pointer-events-none">
-              {Array.from({ length: 25 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="fire-particle"
-                  style={{
-                    left: `${Math.random() * 100}%`,
-                    animationDelay: `${Math.random() * 4}s`
-                  }}
-                  />
-              ))}
-            </div>
-          </div>
-          <div className="bg-zinc-800/60 border border-cyan-500/30 backdrop-blur-lg rounded-2xl shadow-xl p-8 space-y-6 transition-all duration-500 hover:scale-[1.02]">
-            {/* Timer */}
-            <div className="text-7xl font-mono font-extrabold text-cyan-300 tracking-widest drop-shadow-[0_0_20px_#00ffff]">
-              {formatTime(timeLeft)}
-            </div> 
-            
+        {/* Timer */}
+        <TimerCard timeLeft={timeLeft} isBreak={isBreak} />
 
-            <div className={`text-sm font-semibold px-4 py-1 rounded-full shadow-md backdrop-blur-sm 
-              ${isBreak 
-                ? "bg-yellow-400/20 text-yellow-300 border border-yellow-300/30"
-                : "bg-green-400/20 text-green-300 border border-green-300/30"}`}>
-              {isBreak ? " Break Time!" : " Work Session"}
-            </div>
+        {/* Preset Selector */}
+        <PresetSelector
+          workTime={workTime}
+          breakTime={breakTime}
+          setWorkTime={setWorkTime}
+          setBreakTime={setBreakTime}
+        />
 
-            {/* Buttons */}
-            <div className="flex flex-wrap justify-center gap-4">
-              <button
-                onClick={startTimer}
-                className="px-4 py-2 rounded-xl font-bold transition-all duration-300 shadow-md hover:scale-105 bg-green-500 text-white shadow-green-500/50 hover:shadow-lg hover:shadow-green-500/70"
-              >
-                Start
-              </button>
-              <button
-                onClick={pauseTimer}
-                className="px-4 py-2 rounded-xl font-bold transition-all duration-300 shadow-md hover:scale-105 bg-yellow-500 text-white shadow-yellow-500/50 hover:shadow-lg hover:shadow-yellow-500/70">
-                Pause
-              </button>
-              <button
-                onClick={resetTimer}
-                className="px-4 py-2 rounded-xl font-bold transition-all duration-300 shadow-md hover:scale-105 bg-red-500 text-white shadow-red-500/50 hover:shadow-lg hover:shadow-red-500/70"
-              >
-                Reset
-              </button>
-              <button
-                onClick={() => setChillMode(!chillMode)}
-                className={` ${
-                  chillMode
-                    ? "px-4 py-2 rounded-xl font-bold transition-all duration-300 shadow-md hover:scale-105 bg-purple-500 text-white shadow-purple-500/50 hover:shadow-lg hover:shadow-purple-500/70"
-                    : "px-4 py-2 rounded-xl font-bold transition-all duration-300 shadow-md hover:scale-105 bg-blue-500 text-white shadow-blue-500/50 hover:shadow-lg hover:shadow-blue-500/70"
-                } text-white px-4 py-2 rounded-xl font-semibold transition`}
-              >
-                {chillMode ? "Switch to Lock-In " : "Switch to Chill "}
-              </button>
-            </div>
+        {/* Control Buttons */}
+        <Buttons
+          isRunning={isRunning}
+          startPause={startPause}
+          resetTimer={resetTimer}
+          toggleMode={toggleMode}
+          chillMode={chillMode}
+        />
 
-            {/* Status Info */}
-            <div className="flex justify-center gap-4 text-sm text-white/80 mt-4">
-              <div className="flex items-center gap-1 bg-orange-500/10 text-orange-300 px-3 py-1 rounded-full shadow shadow-orange-500/30">
-                🔥 Streak: <span className="font-bold">{streak}</span>
-              </div>
-              <div className="flex items-center gap-1 bg-purple-500/10 text-purple-300 px-3 py-1 rounded-full shadow shadow-purple-500">
-                🎧 Mode:{" "}
-                <span className="font-bold">
-                  {chillMode ? "Chill" : "Lock-In"}
-                </span>
-              </div>
-            </div>
-                <footer className="text-[11px] mt-6 px-2 py-1 rounded-lg bg-white/5 backdrop-blur-sm text-white/50 italic">
-                  © 2025 FocusForge • Crafted by Swastik
-                </footer>
-          </div>
-        </div>
+        {/* Status Panel */}
+        <StatusPanel streak={streak} chillMode={chillMode} xp={xp} level={level} />
 
-        <audio ref={audioRef} src="/beep-6-96243.mp3" preload="auto" />
+        {/* Dark Mode Toggle */}
+        <button
+          onClick={toggleDarkMode}
+          className="mt-4 px-4 py-2 text-sm font-semibold rounded-lg shadow-lg 
+            bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white 
+            hover:scale-105 transition-transform duration-200"
+        >
+          {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+        </button>
+
+        {/* Footer */}
+        <footer className={`text-[11px] mt-6 px-3 py-1 rounded-lg backdrop-blur-sm italic transition 
+          ${darkMode ? "bg-white/5 text-white/50 hover:text-white/80" : "bg-black/10 text-black/60 hover:text-black/80"}`}>
+          © 2025 FocusForge • Crafted by Swastik
+        </footer>
       </div>
-    </>
+
+      {/* Level Up Popup */}
+      {levelUpFlash && (
+        <div className="absolute inset-0 flex items-center justify-center z-20">
+          <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 px-8 py-4 rounded-2xl shadow-2xl text-3xl font-extrabold text-white animate-bounce-fast">
+            🎉 Level Up! You’re now Level {level}
+          </div>
+        </div>
+      )}
+
+      {/* Sound */}
+      <AudioPlayer src="/beep-6-96243.mp3" playSignal={playSound} />
+    </div>
   );
 }
 
